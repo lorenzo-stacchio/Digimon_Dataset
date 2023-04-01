@@ -7,10 +7,12 @@ from selenium.webdriver.support import expected_conditions as EC
 import requests
 from cleantext import clean
 import multiprocessing as mp
-import tqdm 
+import tqdm
 import pandas as pd
 
-list_to_empty_token = ["Digimon Reference Book","Video Games Misc","Anime & Manga","\n"]
+list_to_empty_token = ["Digimon Reference Book",
+                       "Video Games Misc", "Anime & Manga", "\n"]
+
 
 def init_driver():
     options = webdriver.ChromeOptions()
@@ -18,7 +20,8 @@ def init_driver():
     options.add_argument("--headless")
     options.add_argument("--log-level=3")
     driver = webdriver.Chrome(options=options)
-    return driver 
+    return driver
+
 
 def wait_until_xpath(driver, xpath, delay=3):
     delay = delay  # seconds
@@ -56,7 +59,8 @@ def get_image_text_from_url(driver, url_page, name, download_image_root):
     description = "".join(description.split("⇨ Japanese")[1])
     description = clean(description)
     for bw in list_to_empty_token:
-        description = description.replace(bw.lower(), "").strip() # lower because i previously cleaned the sentence
+        # lower because i previously cleaned the sentence
+        description = description.replace(bw.lower(), "").strip()
 
     # IMAGE
     image_desc = "//tbody//tr//td[@colspan=\"4\"]//div//div//a[@class=\"image\"]//img"
@@ -84,30 +88,53 @@ def get_image_text_from_url(driver, url_page, name, download_image_root):
 def crawl_data(pairs, download_image_root):
     driver = init_driver()
     fails = []
-    dataset = pd.DataFrame(columns=["name", "full_page_wiki_url", "image_url", "image_filename", "description"])
+    dataset = pd.DataFrame(columns=[
+                           "name", "full_page_wiki_url", "image_url", "image_filename", "description"])
     for (name, url_page) in tqdm.tqdm(pairs, total=len(pairs), desc="Retrieving Image and Text"):
         try:
             image_path, image_url, description = get_image_text_from_url(
                 driver, url_page, name, download_image_root)
             new_row = {"name": name, "full_page_wiki_url": url_page, "image_url": image_url,
-                                    "image_filename": image_path, "description": description}
+                       "image_filename": image_path, "description": description}
             dataset = dataset.append(new_row, ignore_index=True)
             # dataset.to_csv(df_path, index=False)
 
         except Exception as e:
             print(e)
             fails.append((name, url_page))
-            with open("dataset/fails.txt", "w") as f:
-                for x in fails:
-                    f.write(",".join(x) + "\n")
+            # with open("dataset/fails.txt", "w") as f:
+            #     for x in fails:
+            #         f.write(",".join(x) + "\n")
     return dataset, fails
 
-def create_driver_parallel_crawling(pairs, download_image_root):
+
+def create_driver_parallel_crawling(pairs, download_image_root, df_path):
+    # TO DEBUG
+    # pairs = pairs[-8:]
+    # cp_count = 2  # mp.cpu_count()
     cp_count = mp.cpu_count()
     print(cp_count)
     partition_len = len(pairs)//cp_count
     pool = mp.Pool(cp_count)
-    partitions = [pairs[i:(i+partition_len)] for i in range(0, len(pairs), partition_len)]
-    results = pool.starmap(crawl_data, [(part, download_image_root) for part in partitions])
-    print(len(results))
+    partitions = [pairs[i:(i+partition_len)]
+                  for i in range(0, len(pairs), partition_len)]
+    results = pool.starmap(
+        crawl_data, [(part, download_image_root) for part in partitions])
     pool.close()
+
+    # AGGREGATE AND SAVE RESULTS
+    df_final = pd.DataFrame(columns=[
+                            "name", "full_page_wiki_url", "image_url", "image_filename", "description"])
+    tot_failures = []
+    for res in results:
+        df_temp, failures = res
+        df_final = df_final.append(df_temp, ignore_index=True)
+        tot_failures.extend(failures)
+    
+    df_final.to_csv(df_path, index=False)
+
+
+    with open("dataset/fails.txt", "w", encoding="utf-8") as f:
+        for x in tot_failures:
+            f.write(",".join(x) + "\n")
+

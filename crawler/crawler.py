@@ -38,7 +38,7 @@ if __name__=="__main__":
 
 
     driver.close()
-    crawling_utils.create_driver_parallel_crawling(pairs,download_image_root)
+    crawling_utils.create_driver_parallel_crawling(pairs,download_image_root,df_path)
 
 # fails = []
 # for (name, url_page) in tqdm.tqdm(pairs, total=len(pairs), desc="Retrieving Image and Text"):
