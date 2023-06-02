@@ -128,5 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 images/*.jpg
-dataset/*
+dataset/*.csv
+dataset/*.zip
+dataset/*.txt
+dataset/train/*
 sd-digimon-model/logs/*
