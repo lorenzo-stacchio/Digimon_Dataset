@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 images/*.jpg
 dataset/*
+sd-digimon-model/logs/*
